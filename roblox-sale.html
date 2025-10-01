@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <title>פריטים למכירה 🚀</title>
+  <style>
+    :root{
+      --bg:#0b0b0f;
+      --accent:#00f6ff;
+    }
+    *{box-sizing:border-box;font-family:Inter, sans-serif;}
+    body{margin:0;padding:20px;background:radial-gradient(1200px 500px at 10% 10%, rgba(2,8,23,0.7), transparent), linear-gradient(180deg,#071023 0%, #05060a 100%);color:white;}
+    .app{max-width:1200px;margin:auto;display:flex;gap:20px;}
+    .list-container{flex:1;min-width:300px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:18px;padding:28px;box-shadow:0 10px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.03);backdrop-filter: blur(6px);}
+    h2{margin:0 0 18px 0;text-align:center;color:#0ff;text-shadow:0 0 10px #0ff,0 0 20px #0ff;}
+    .input-wrap{display:flex;align-items:center;background:linear-gradient(145deg,#0f1620,#06080b);padding:8px;border-radius:999px;gap:8px;border:1px solid rgba(255,255,255,0.04);margin-bottom:18px;}
+    input[type="text"]{border:0;outline:none;background:transparent;color:white;padding:10px 12px;font-size:16px;border-radius:12px;flex:1;}
+    button.add-btn{width:44px;height:44px;border-radius:999px;border:0;cursor:pointer;display:grid;place-items:center;background:linear-gradient(180deg,#111827,#000);box-shadow:0 6px 18px rgba(0,0,0,0.6), 0 0 18px rgba(0,246,255,0.06);color:white;font-weight:700;}
+    .items{display:grid;grid-template-columns:repeat(2, 1fr);gap:14px;}
+    .item-card{position:relative;padding:18px;border-radius:14px;min-height:84px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,0.03);box-shadow: 0 10px 30px rgba(0,0,0,0.6);transition: transform 0.3s, opacity 0.3s;}
+    .item-content{display:flex;gap:12px;align-items:center;width:100%}
+    .item-title{font-size:18px;font-weight:700;color:white;flex:1;text-shadow:0 0 12px rgba(255,255,255,0.2),0 0 24px rgba(0,246,255,0.1);}
+    .actions{display:flex;gap:8px}
+    .delete-btn,.edit-btn{border:0;background:transparent;color:white;cursor:pointer;padding:6px 8px;font-size:18px;}
+    .delete-btn:hover,.edit-btn:hover{transform:translateY(-2px);}
+    .empty{padding:36px;border-radius:12px;text-align:center;color:rgba(255,255,255,0.6);border:1px dashed rgba(255,255,255,0.03);}
+
+    /* === חללית === */
+    .overlay {
+      position:fixed;inset:0;
+      background:rgba(0,0,0,0.7);
+      display:flex;align-items:center;justify-content:center;
+      z-index:999;opacity:0;pointer-events:none;
+      transition:opacity 0.5s ease;
+    }
+    .overlay.active{opacity:1;pointer-events:auto;}
+
+    .rocket-box{
+      width:200px;height:300px;
+      background:linear-gradient(180deg,#222,#000);
+      border:2px solid #0ff;
+      border-radius:100px 100px 40px 40px;
+      display:flex;align-items:center;justify-content:center;
+      position:relative;
+      box-shadow:0 0 40px #0ff;
+      animation:float 2s infinite ease-in-out;
+    }
+    .rocket-box::after{
+      content:"";
+      position:absolute;
+      bottom:-40px;left:50%;
+      transform:translateX(-50%);
+      width:40px;height:80px;
+      background:radial-gradient(circle at top,#ff0,#f00);
+      border-radius:20px;
+      filter:blur(6px);
+      animation:flame 0.3s infinite alternate;
+    }
+    .rocket-text{
+      text-align:center;
+      font-size:18px;
+      font-weight:bold;
+      color:#fff;
+      text-shadow:0 0 8px #0ff;
+      padding:10px;
+    }
+    @keyframes float{
+      0%,100%{transform:translateY(0);}
+      50%{transform:translateY(-10px);}
+    }
+    @keyframes flame{
+      from{height:60px;opacity:0.7;}
+      to{height:90px;opacity:1;}
+    }
+    @keyframes launch{
+      0%{transform:translateY(0) scale(1);opacity:1;}
+      100%{transform:translateY(-120vh) scale(0.8);opacity:0;}
+    }
+
+    /* === אנימציית נמכר עם להבה === */
+    .item-card.sold {
+      animation: soldAnim 2s forwards;
+    }
+
+    .item-card .fire {
+      position: absolute;
+      bottom: -20px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 30px;
+      height: 50px;
+      background: radial-gradient(circle at top, #ff0, #f00);
+      border-radius: 50%;
+      filter: blur(4px);
+      animation: fireAnim 0.3s infinite alternate;
+      pointer-events: none;
+    }
+
+    @keyframes soldAnim {
+      0% { transform: scale(1) rotate(0deg); opacity: 1; }
+      50% { transform: scale(1.1) rotate(5deg); opacity: 0.8; }
+      100% { transform: scale(0.8) rotate(-10deg); opacity: 0; }
+    }
+
+    @keyframes fireAnim {
+      from{height:30px;opacity:0.7;}
+      to{height:50px;opacity:1;}
+    }
+
+  </style>
+</head>
+<body>
+  <div class="app">
+    <!-- רשימה רגילה -->
+    <div class="list-container">
+      <h2>פריטים מתחת ל-100 ₪</h2>
+      <div class="input-wrap">
+        <input id="normalInput" type="text" placeholder="הכנס שם רגיל...">
+        <button id="normalAdd" class="add-btn">+</button>
+      </div>
+      <div class="items" id="normalItems"></div>
+    </div>
+
+    <!-- רשימה מיוחדת -->
+    <div class="list-container">
+      <h2>פריטים מעל 100 ₪</h2>
+      <div class="input-wrap">
+        <input id="specialInput" type="text" placeholder="הכנס שם מיוחד...">
+        <button id="specialAdd" class="add-btn">+</button>
+      </div>
+      <div class="items" id="specialItems"></div>
+    </div>
+  </div>
+
+  <!-- חללית -->
+  <div class="overlay" id="overlay">
+    <div class="rocket-box" id="rocket">
+      <div class="rocket-text" id="rocketText"></div>
+    </div>
+  </div>
+
+  <template id="itemTemplate">
+    <div class="item-card">
+      <div class="item-content">
+        <div class="item-title"></div>
+        <div class="actions">
+          <button class="edit-btn">✎</button>
+          <button class="delete-btn">🗑</button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <script>
+    function saveItems(key, items){ localStorage.setItem(key, JSON.stringify(items)); }
+    function loadItems(key){ return JSON.parse(localStorage.getItem(key)||"[]"); }
+
+    function renderItems(containerId, storageKey){
+      const container=document.getElementById(containerId);
+      container.innerHTML="";
+      const items=loadItems(storageKey);
+      if(items.length===0){
+        const empty=document.createElement("div");
+        empty.className="empty"; empty.textContent="אין פריטים";
+        container.appendChild(empty);
+      }
+      items.forEach((text,index)=>{
+        const node=document.getElementById("itemTemplate").content.firstElementChild.cloneNode(true);
+        node.querySelector(".item-title").textContent=text;
+        node.querySelector(".edit-btn").onclick=()=>{
+          const newName=prompt("ערוך את השם:",text);
+          if(newName){ items[index]=newName; saveItems(storageKey,items); renderItems(containerId,storageKey); }
+        };
+        node.querySelector(".delete-btn").onclick=()=>{ 
+          launchItem(text,()=>{ 
+            items.splice(index,1); 
+            saveItems(storageKey,items); 
+            renderItems(containerId,storageKey); 
+          });
+        };
+        container.appendChild(node);
+      });
+    }
+
+    function setup(inputId, btnId, containerId, storageKey){
+      const input=document.getElementById(inputId);
+      document.getElementById(btnId).onclick=()=>{
+        const val=input.value.trim();
+        if(!val) return input.focus();
+        const items=loadItems(storageKey);
+        items.push(val);
+        saveItems(storageKey,items);
+        input.value="";
+        renderItems(containerId,storageKey);
+      };
+      input.addEventListener("keydown",(e)=>{if(e.key==="Enter") document.getElementById(btnId).click();});
+      renderItems(containerId,storageKey);
+    }
+
+    setup("normalInput","normalAdd","normalItems","normal");
+    setup("specialInput","specialAdd","specialItems","special");
+
+    let isLaunching = false;
+
+    function launchItem(text, cb){
+      if(isLaunching) return;
+      isLaunching = true;
+
+      const overlay = document.getElementById("overlay");
+      const rocket = document.getElementById("rocket");
+      const itemCards = [...document.querySelectorAll(".item-card")];
+
+      // סמן את הכרטיס כ"נמכר" והוסף להבה
+      const card = itemCards.find(c => c.querySelector(".item-title").textContent === text);
+      if(card){
+        card.classList.add("sold");
+        const fire = document.createElement("div");
+        fire.className = "fire";
+        card.appendChild(fire);
+      }
+
+      // הצגת החללית
+      document.getElementById("rocketText").textContent = text;
+      overlay.classList.add("active");
+      rocket.style.animation="float 2s infinite ease-in-out";
+
+      // אחרי 2 שניות, משגרת את החללית
+      setTimeout(()=>{
+        rocket.style.animation="launch 3s forwards ease-in";
+        setTimeout(()=>{
+          overlay.classList.remove("active");
+          rocket.style.animation="";
+          cb(); // מחיקת הפריט
+          isLaunching = false;
+        },3000);
+      },2000);
+    }
+  </script>
+</body>
+</html>
