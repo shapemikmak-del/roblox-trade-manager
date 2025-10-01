@@ -108,7 +108,6 @@ html,body{height:100%;margin:0;background:var(--bg);font-family:'Rubik',sans-ser
 
 
 
-
 /* כפתור נגישות קבוע */
 #accessibility-btn {
   position: fixed;
@@ -129,56 +128,37 @@ html,body{height:100%;margin:0;background:var(--bg);font-family:'Rubik',sans-ser
 #accessibility-panel {
   position: fixed;
   top: 0;
-  right: -300px;
-  width: 300px;
+  right: -320px;
+  width: 320px;
   height: 100%;
-  background: var(--card); /* במקום #f9f9f9 */
+  background: var(--card);
   color: #e6eef7;
-  box-shadow: -3px 0 10px rgba(0,0,0,0.6);
+  box-shadow: -4px 0 15px rgba(0,0,0,0.6);
   padding: 20px;
   transition: right 0.3s ease;
   z-index: 9998;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
+#accessibility-panel.open { right: 0; }
 
-#accessibility-panel.open {
-  right: 0;
-}
-
-#accessibility-panel h2 {
-  margin-top: 0;
-  margin-bottom: 20px;
-  font-size: 1.5em;
-}
-
-.accessibility-option {
-  margin-bottom: 15px;
-}
-
+.accessibility-option { margin-bottom: 15px; display: flex; flex-direction: column; gap: 8px; }
 .accessibility-option button {
-  display: block;
-  margin-bottom: 5px;
   padding: 10px;
-  width: 100%;
-  cursor: pointer;
+  border-radius: 6px;
   border: none;
   background: #007acc;
   color: white;
-  border-radius: 5px;
   font-size: 1em;
+  cursor: pointer;
 }
+.accessibility-option button.active { background: #00ffcc; color: #000; }
 
-/* מצבי ניגודיות ודארק */
-.high-contrast {
-  background: black !important;
-  color: yellow !important;
+#close-panel {
+  margin-top: auto;
+  background: #ff3b30;
 }
-
-.dark-mode {
-  background: #121212 !important;
-  color: #e0e0e0 !important;
-}
-
 
 </style>
 </head>
@@ -197,27 +177,31 @@ html,body{height:100%;margin:0;background:var(--bg);font-family:'Rubik',sans-ser
 
 </header>
 <!-- כפתור נגישות -->
-<button id="accessibility-btn" aria-label="תפריט נגישות">🛠️</button>
+<button id="accessibility-btn" aria-label="פתח תפריט נגישות" title="נגישות">🛠️</button>
 
 <!-- חלונית צדדית -->
-<div id="accessibility-panel" aria-hidden="true">
-  <h2>נגישות</h2>
+<div id="accessibility-panel" role="dialog" aria-labelledby="accessibility-title" aria-describedby="accessibility-desc" aria-hidden="true">
+  <h2 id="accessibility-title">תפריט נגישות</h2>
+  <p id="accessibility-desc">כלי נגישות לשיפור חוויית המשתמש באתר</p>
+
   <div class="accessibility-option">
     <button id="toggle-contrast">ניגודיות גבוהה</button>
-  </div>
-  <div class="accessibility-option">
     <button id="toggle-dark">מצב כהה</button>
   </div>
+
   <div class="accessibility-option">
     <button id="increase-text">הגדל טקסט</button>
     <button id="decrease-text">הקטן טקסט</button>
+    <button id="increase-buttons">הגדל כפתורים</button>
+    <button id="reset-buttons">אפס גודל כפתורים</button>
   </div>
+
   <div class="accessibility-option">
     <button id="read-text">הקרא טקסט</button>
   </div>
+
   <button id="close-panel" aria-label="סגור חלונית">✖️</button>
 </div>
-
 
 <main class="main">
   <!-- LEFT: CONTROLS -->
@@ -315,48 +299,81 @@ html,body{height:100%;margin:0;background:var(--bg);font-family:'Rubik',sans-ser
 <script>
 window.addEventListener('DOMContentLoaded', () => {
 
-const btn = document.getElementById('accessibility-btn');
-const panel = document.getElementById('accessibility-panel');
-const closePanel = document.getElementById('close-panel');
+  const btn = document.getElementById('accessibility-btn');
+  const panel = document.getElementById('accessibility-panel');
+  const closePanel = document.getElementById('close-panel');
+  const focusableSelectors = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+  let lastFocused;
 
-btn.addEventListener('click', () => {
-  panel.classList.add('open');
-  panel.setAttribute('aria-hidden', 'false');
-});
+  // פתיחה וסגירה
+  btn.addEventListener('click', () => {
+    panel.classList.add('open');
+    panel.setAttribute('aria-hidden', 'false');
+    lastFocused = document.activeElement;
+    panel.querySelector(focusableSelectors).focus();
+  });
 
-closePanel.addEventListener('click', () => {
-  panel.classList.remove('open');
-  panel.setAttribute('aria-hidden', 'true');
-});
+  closePanel.addEventListener('click', () => {
+    panel.classList.remove('open');
+    panel.setAttribute('aria-hidden', 'true');
+    lastFocused?.focus();
+  });
 
-// ניגודיות גבוהה
-document.getElementById('toggle-contrast').addEventListener('click', () => {
-  document.body.classList.toggle('high-contrast');
-});
+  // ניווט מקלדת בתוך החלונית
+  panel.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      closePanel.click();
+    }
+    if (e.key === 'Tab') {
+      const focusable = Array.from(panel.querySelectorAll(focusableSelectors));
+      const first = focusable[0];
+      const last = focusable[focusable.length-1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  });
 
-// מצב כהה
-document.getElementById('toggle-dark').addEventListener('click', () => {
-  document.body.classList.toggle('dark-mode');
-});
+  // ניגודיות גבוהה
+  const contrastBtn = document.getElementById('toggle-contrast');
+  contrastBtn.addEventListener('click', () => {
+    document.body.classList.toggle('high-contrast');
+    contrastBtn.classList.toggle('active');
+  });
 
-// הגדלה והקטנה של טקסט
-let fontSize = 100;
-document.getElementById('increase-text').addEventListener('click', () => {
-  fontSize += 10;
-  document.body.style.fontSize = fontSize + '%';
-});
-document.getElementById('decrease-text').addEventListener('click', () => {
-  fontSize = Math.max(50, fontSize - 10);
-  document.body.style.fontSize = fontSize + '%';
-});
+  // מצב כהה
+  const darkBtn = document.getElementById('toggle-dark');
+  darkBtn.addEventListener('click', () => {
+    document.body.classList.toggle('dark-mode');
+    darkBtn.classList.toggle('active');
+  });
 
-// קריאה קולית (Text-to-Speech)
-document.getElementById('read-text').addEventListener('click', () => {
-  const text = document.body.innerText;
-  const utterance = new SpeechSynthesisUtterance(text);
-  speechSynthesis.speak(utterance);
-});
+  // הגדלת והקטנת טקסט
+  let fontSize = 100;
+  document.getElementById('increase-text').addEventListener('click', () => {
+    fontSize += 10;
+    document.body.style.fontSize = fontSize + '%';
+  });
+  document.getElementById('decrease-text').addEventListener('click', () => {
+    fontSize = Math.max(50, fontSize - 10);
+    document.body.style.fontSize = fontSize + '%';
+  });
 
+  // הגדלת כפתורים
+  const btnIncrease = document.getElementById('increase-buttons');
+  const btnReset = document.getElementById('reset-buttons');
+  btnIncrease.addEventListener('click', () => {
+    document.querySelectorAll('button').forEach(b => b.style.fontSize='1.2em');
+  });
+  btnReset.addEventListener('click', () => {
+    document.querySelectorAll('button').forEach(b => b.style.fontSize='1em');
+  });
+
+  // קריאה קולית (Text-to-Speech)
+  document.getElementById('read-text').addEventListener('click', () => {
+    const text = document.body.innerText;
+    const utterance = new SpeechSynthesisUtterance(text);
+    speechSynthesis.speak(utterance);
+  });
   // --- Utilities ---
   const uid = () => 't' + Math.random().toString(36).slice(2, 10);
   const pad = n => n.toString().padStart(2, '0');
