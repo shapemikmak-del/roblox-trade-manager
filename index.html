@@ -102,6 +102,84 @@ html,body{height:100%;margin:0;background:var(--bg);font-family:'Rubik',sans-ser
   .summary .item{min-width:100px}
   .brand .title{display:none}
 }
+
+
+
+
+
+
+
+/* כפתור נגישות קבוע */
+#accessibility-btn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 9999;
+  background: #007acc;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 50px;
+  height: 50px;
+  font-size: 24px;
+  cursor: pointer;
+}
+
+/* חלונית צדדית */
+#accessibility-panel {
+  position: fixed;
+  top: 0;
+  right: -300px;
+  width: 300px;
+  height: 100%;
+  background: var(--card); /* במקום #f9f9f9 */
+  color: #e6eef7;
+  box-shadow: -3px 0 10px rgba(0,0,0,0.6);
+  padding: 20px;
+  transition: right 0.3s ease;
+  z-index: 9998;
+  overflow-y: auto;
+}
+
+#accessibility-panel.open {
+  right: 0;
+}
+
+#accessibility-panel h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+  font-size: 1.5em;
+}
+
+.accessibility-option {
+  margin-bottom: 15px;
+}
+
+.accessibility-option button {
+  display: block;
+  margin-bottom: 5px;
+  padding: 10px;
+  width: 100%;
+  cursor: pointer;
+  border: none;
+  background: #007acc;
+  color: white;
+  border-radius: 5px;
+  font-size: 1em;
+}
+
+/* מצבי ניגודיות ודארק */
+.high-contrast {
+  background: black !important;
+  color: yellow !important;
+}
+
+.dark-mode {
+  background: #121212 !important;
+  color: #e0e0e0 !important;
+}
+
+
 </style>
 </head>
 <body>
@@ -114,7 +192,32 @@ html,body{height:100%;margin:0;background:var(--bg);font-family:'Rubik',sans-ser
       <div style="font-size:12px;color:var(--muted)">ניהול קניות ומכירות — גרסה מקצועית</div>
     </div>
   </div>
+  
+  
+
 </header>
+<!-- כפתור נגישות -->
+<button id="accessibility-btn" aria-label="תפריט נגישות">🛠️</button>
+
+<!-- חלונית צדדית -->
+<div id="accessibility-panel" aria-hidden="true">
+  <h2>נגישות</h2>
+  <div class="accessibility-option">
+    <button id="toggle-contrast">ניגודיות גבוהה</button>
+  </div>
+  <div class="accessibility-option">
+    <button id="toggle-dark">מצב כהה</button>
+  </div>
+  <div class="accessibility-option">
+    <button id="increase-text">הגדל טקסט</button>
+    <button id="decrease-text">הקטן טקסט</button>
+  </div>
+  <div class="accessibility-option">
+    <button id="read-text">הקרא טקסט</button>
+  </div>
+  <button id="close-panel" aria-label="סגור חלונית">✖️</button>
+</div>
+
 
 <main class="main">
   <!-- LEFT: CONTROLS -->
@@ -211,6 +314,49 @@ html,body{height:100%;margin:0;background:var(--bg);font-family:'Rubik',sans-ser
 
 <script>
 window.addEventListener('DOMContentLoaded', () => {
+
+const btn = document.getElementById('accessibility-btn');
+const panel = document.getElementById('accessibility-panel');
+const closePanel = document.getElementById('close-panel');
+
+btn.addEventListener('click', () => {
+  panel.classList.add('open');
+  panel.setAttribute('aria-hidden', 'false');
+});
+
+closePanel.addEventListener('click', () => {
+  panel.classList.remove('open');
+  panel.setAttribute('aria-hidden', 'true');
+});
+
+// ניגודיות גבוהה
+document.getElementById('toggle-contrast').addEventListener('click', () => {
+  document.body.classList.toggle('high-contrast');
+});
+
+// מצב כהה
+document.getElementById('toggle-dark').addEventListener('click', () => {
+  document.body.classList.toggle('dark-mode');
+});
+
+// הגדלה והקטנה של טקסט
+let fontSize = 100;
+document.getElementById('increase-text').addEventListener('click', () => {
+  fontSize += 10;
+  document.body.style.fontSize = fontSize + '%';
+});
+document.getElementById('decrease-text').addEventListener('click', () => {
+  fontSize = Math.max(50, fontSize - 10);
+  document.body.style.fontSize = fontSize + '%';
+});
+
+// קריאה קולית (Text-to-Speech)
+document.getElementById('read-text').addEventListener('click', () => {
+  const text = document.body.innerText;
+  const utterance = new SpeechSynthesisUtterance(text);
+  speechSynthesis.speak(utterance);
+});
+
   // --- Utilities ---
   const uid = () => 't' + Math.random().toString(36).slice(2, 10);
   const pad = n => n.toString().padStart(2, '0');
