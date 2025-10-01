@@ -160,6 +160,41 @@ html,body{height:100%;margin:0;background:var(--bg);font-family:'Rubik',sans-ser
   background: #ff3b30;
 }
 
+
+
+/* login modal */
+#loginModal {
+  position: fixed; top:0; left:0; width:100%; height:100%; display:flex;
+  justify-content:center; align-items:center; background: rgba(0,0,0,0.7); z-index:9999;
+}
+#loginModal .panel { width:300px; }
+
+
+.hidden {
+  display: none !important;
+}
+
+
+.logout-btn {
+  background: linear-gradient(90deg, #ff5757, #ff3b30);
+  color: white;
+  font-weight: 600;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+  transition: all 0.2s ease;
+}
+
+.logout-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0,0,0,0.5);
+}
+
+.logout-btn:active {
+
+
 </style>
 </head>
 <body>
@@ -171,11 +206,28 @@ html,body{height:100%;margin:0;background:var(--bg);font-family:'Rubik',sans-ser
       <div class="title">Roblox Trade Manager</div>
       <div style="font-size:12px;color:var(--muted)">ניהול קניות ומכירות — גרסה מקצועית</div>
     </div>
+	
   </div>
   
-  
+  <button id="logoutBtn" class="btn logout-btn hidden">התנתק</button>
 
 </header>
+
+
+<!-- LOGIN MODAL -->
+<div id="loginModal">
+  <div class="panel card">
+    <h3>התחברות / הרשמה</h3>
+    <input id="emailInput" class="input" type="email" placeholder="אימייל" />
+    <input id="passInput" class="input" type="password" placeholder="סיסמה" />
+    <div class="row">
+      <button id="loginBtn" class="btn blue small">התחבר</button>
+      <button id="registerBtn" class="btn green small">הירשם</button>
+    </div>
+    <div id="loginError" style="color:#ff3b30;margin-top:8px;font-size:13px"></div>
+  </div>
+</div>
+
 <!-- כפתור נגישות -->
 <button id="accessibility-btn" aria-label="פתח תפריט נגישות" title="נגישות">🛠️</button>
 
@@ -295,95 +347,80 @@ html,body{height:100%;margin:0;background:var(--bg);font-family:'Rubik',sans-ser
     </div>
   </section>
 </main>
+<script type="module">
+/* ===========================
+   Imports (חובה להיות בראש המודול)
+   =========================== */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import {
+  getAuth,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+import {
+  getFirestore,
+  collection,
+  doc,
+  getDocs,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  query,
+  where,
+  orderBy,
+  onSnapshot
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
-<script>
+/* ===========================
+   Firebase config + init
+   =========================== */
+const firebaseConfig = {
+  apiKey: "AIzaSyC9iwUh78agY9sGsX8VebSVfD1ouzqt0Z4",
+  authDomain: "dashboard-shop-firebase.firebaseapp.com",
+  projectId: "dashboard-shop-firebase",
+  storageBucket: "dashboard-shop-firebase.appspot.com",
+  messagingSenderId: "294205503847",
+  appId: "1:294205503847:web:f070c8b02e3eb034fe17c2"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+
+/* ===========================
+   Global state
+   =========================== */
+const STORAGE_KEY = 'roblox_trade_data_v1';
+let transactions = [];           // רשימת העסקאות הנוכחית (למשתמש המחובר)
+let currentUserUID = null;       // uid של המשתמש המחובר
+let transactionsUnsubscribe = null; // פוינטר ל־onSnapshot unsubscribe
+let filtered = null;             // נתונים מסוננים (UI)
+
+/* ===========================
+   Utilities
+   =========================== */
+const uid = () => 't' + Math.random().toString(36).slice(2, 10);
+const pad = n => n.toString().padStart(2, '0');
+const todayISO = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+};
+const fmt = v => (Number(v) || 0).toLocaleString('he-IL');
+
+/* ===========================
+   DOMContentLoaded — כל הקוד התלוי ב-DOM פה
+   =========================== */
 window.addEventListener('DOMContentLoaded', () => {
 
+  // --- DOM Elements ---
   const btn = document.getElementById('accessibility-btn');
   const panel = document.getElementById('accessibility-panel');
   const closePanel = document.getElementById('close-panel');
   const focusableSelectors = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
   let lastFocused;
 
-  // פתיחה וסגירה
-  btn.addEventListener('click', () => {
-    panel.classList.add('open');
-    panel.setAttribute('aria-hidden', 'false');
-    lastFocused = document.activeElement;
-    panel.querySelector(focusableSelectors).focus();
-  });
-
-  closePanel.addEventListener('click', () => {
-    panel.classList.remove('open');
-    panel.setAttribute('aria-hidden', 'true');
-    lastFocused?.focus();
-  });
-
-  // ניווט מקלדת בתוך החלונית
-  panel.addEventListener('keydown', e => {
-    if (e.key === 'Escape') {
-      closePanel.click();
-    }
-    if (e.key === 'Tab') {
-      const focusable = Array.from(panel.querySelectorAll(focusableSelectors));
-      const first = focusable[0];
-      const last = focusable[focusable.length-1];
-      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
-      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
-    }
-  });
-
-  // ניגודיות גבוהה
-  const contrastBtn = document.getElementById('toggle-contrast');
-  contrastBtn.addEventListener('click', () => {
-    document.body.classList.toggle('high-contrast');
-    contrastBtn.classList.toggle('active');
-  });
-
-  // מצב כהה
-  const darkBtn = document.getElementById('toggle-dark');
-  darkBtn.addEventListener('click', () => {
-    document.body.classList.toggle('dark-mode');
-    darkBtn.classList.toggle('active');
-  });
-
-  // הגדלת והקטנת טקסט
-  let fontSize = 100;
-  document.getElementById('increase-text').addEventListener('click', () => {
-    fontSize += 10;
-    document.body.style.fontSize = fontSize + '%';
-  });
-  document.getElementById('decrease-text').addEventListener('click', () => {
-    fontSize = Math.max(50, fontSize - 10);
-    document.body.style.fontSize = fontSize + '%';
-  });
-
-  // הגדלת כפתורים
-  const btnIncrease = document.getElementById('increase-buttons');
-  const btnReset = document.getElementById('reset-buttons');
-  btnIncrease.addEventListener('click', () => {
-    document.querySelectorAll('button').forEach(b => b.style.fontSize='1.2em');
-  });
-  btnReset.addEventListener('click', () => {
-    document.querySelectorAll('button').forEach(b => b.style.fontSize='1em');
-  });
-
-  // קריאה קולית (Text-to-Speech)
-  document.getElementById('read-text').addEventListener('click', () => {
-    const text = document.body.innerText;
-    const utterance = new SpeechSynthesisUtterance(text);
-    speechSynthesis.speak(utterance);
-  });
-  // --- Utilities ---
-  const uid = () => 't' + Math.random().toString(36).slice(2, 10);
-  const pad = n => n.toString().padStart(2, '0');
-  const todayISO = () => {
-    const d = new Date();
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  };
-  const fmt = v => (Number(v) || 0).toLocaleString('he-IL');
-
-  // --- DOM Elements ---
   const inputItem = document.getElementById('inputItem');
   const inputPrice = document.getElementById('inputPrice');
   const inputDate = document.getElementById('inputDate');
@@ -406,82 +443,120 @@ window.addEventListener('DOMContentLoaded', () => {
   const countBought = document.getElementById('countBought');
   const countSold = document.getElementById('countSold');
 
-  // --- State ---
-  const STORAGE_KEY = 'roblox_trade_data_v1';
-  let transactions = [];
-  let filtered = null;
+  const contrastBtn = document.getElementById('toggle-contrast');
+  const darkBtn = document.getElementById('toggle-dark');
+  const increaseTextBtn = document.getElementById('increase-text');
+  const decreaseTextBtn = document.getElementById('decrease-text');
+  const btnIncrease = document.getElementById('increase-buttons');
+  const btnReset = document.getElementById('reset-buttons');
+  const readTextBtn = document.getElementById('read-text');
 
-  // --- Charts ---
-  let profitChart, expensesChart, salesChart, pieExpenses;
+  const loginModal = document.getElementById('loginModal');
+  const loginBtn = document.getElementById('loginBtn');
+  const signupBtn = document.getElementById('registerBtn');
+  const logoutBtn = document.getElementById('logoutBtn');
+  const emailInput = document.getElementById('emailInput');
+  const passwordInput = document.getElementById('passInput');
 
-  // --- Local Storage ---
-  function saveLocal() { localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions)); }
+  // --- Accessibility panel behavior ---
+  btn?.addEventListener('click', () => {
+    panel.classList.add('open');
+    panel.setAttribute('aria-hidden', 'false');
+    lastFocused = document.activeElement;
+    const f = panel.querySelector(focusableSelectors);
+    if (f) f.focus();
+  });
+
+  closePanel?.addEventListener('click', () => {
+    panel.classList.remove('open');
+    panel.setAttribute('aria-hidden', 'true');
+    lastFocused?.focus();
+  });
+
+  panel?.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closePanel?.click();
+    if (e.key === 'Tab') {
+      const focusable = Array.from(panel.querySelectorAll(focusableSelectors));
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  });
+
+  // --- Accessibility controls ---
+  contrastBtn?.addEventListener('click', () => {
+    document.body.classList.toggle('high-contrast');
+    contrastBtn.classList.toggle('active');
+  });
+
+  darkBtn?.addEventListener('click', () => {
+    document.body.classList.toggle('dark-mode');
+    darkBtn.classList.toggle('active');
+  });
+
+  let fontSize = 100;
+  increaseTextBtn?.addEventListener('click', () => {
+    fontSize += 10;
+    document.body.style.fontSize = fontSize + '%';
+  });
+  decreaseTextBtn?.addEventListener('click', () => {
+    fontSize = Math.max(50, fontSize - 10);
+    document.body.style.fontSize = fontSize + '%';
+  });
+
+  btnIncrease?.addEventListener('click', () => {
+    document.querySelectorAll('button').forEach(b => b.style.fontSize = '1.2em');
+  });
+  btnReset?.addEventListener('click', () => {
+    document.querySelectorAll('button').forEach(b => b.style.fontSize = '1em');
+  });
+
+  readTextBtn?.addEventListener('click', () => {
+    const text = document.body.innerText;
+    const utterance = new SpeechSynthesisUtterance(text);
+    speechSynthesis.speak(utterance);
+  });
+
+  // --- Charts placeholders (מוכנים בקוד שלך) ---
+  let profitChart, expensesChart, salesChart;
+  function initCharts() {
+    // יש להשאיר כפי שהיה (הנחתי ש-Chart.js טעון בדף)
+    profitChart = new Chart(document.getElementById('profitChart').getContext('2d'), {
+      type: 'line',
+      data: { labels: [], datasets: [{ label: 'רווח יומי (₪)', data: [], borderColor: '#00ffcc', backgroundColor: 'rgba(0,255,204,0.08)', tension: 0.2, fill: true, pointRadius: 4 }] },
+      options: { plugins: { legend: { display: false } }, scales: { y: { ticks: { color: '#dbeefc' } }, x: { ticks: { color: '#9aa3b2' } } } }
+    });
+
+    expensesChart = new Chart(document.getElementById('expensesChart').getContext('2d'), {
+      type: 'bar',
+      data: { labels: [], datasets: [{ label: 'הוצאות יומיות', data: [], backgroundColor: '#ff9b9b' }] },
+      options: { plugins: { legend: { display: false } }, scales: { y: { ticks: { color: '#dbeefc' } }, x: { ticks: { color: '#9aa3b2' } } } }
+    });
+
+    salesChart = new Chart(document.getElementById('salesChart').getContext('2d'), {
+      type: 'bar',
+      data: { labels: [], datasets: [{ label: 'מכירות יומיות', data: [], backgroundColor: '#9be0ff' }] },
+      options: { plugins: { legend: { display: false } }, scales: { y: { ticks: { color: '#dbeefc' } }, x: { ticks: { color: '#9aa3b2' } } } }
+    });
+  }
+
+  // --- Local storage (שמרתי סטובים — תוכל להרחיב) ---
+  function saveLocal() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(transactions)); } catch (e) { /* silent */ }
+  }
   function loadLocal() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      transactions = raw ? JSON.parse(raw) : [];
+      if (raw) transactions = JSON.parse(raw);
     } catch (e) { transactions = []; }
   }
 
-  // --- CRUD ---
-  function addTransaction(type, item, price, date) {
-  cleanAfterAction();
-    transactions.push({ id: uid(), type, item: item.trim(), price: Number(price), date });
-    saveLocal();
-    refreshUI();
-  }
-function cleanAfterAction()
-{
-inputItem.value='';
-inputPrice.value='';
-inputDate.value='';
-}
-  function editTransaction(id, newData) {
-    const idx = transactions.findIndex(x => x.id === id);
-    if (idx >= 0) {
-      transactions[idx] = { ...transactions[idx], ...newData };
-      saveLocal();
-      refreshUI();
-    }
-  }
-
-  function deleteTransaction(id) {
-    transactions = transactions.filter(x => x.id !== id);
-    saveLocal();
-    refreshUI();
-  }
-
-  // --- Filtering ---
-  function getFilteredData() {
-    const q = searchBox.value.trim().toLowerCase();
-    const from = filterFrom.value;
-    const to = filterTo.value;
-    let data = transactions;
-    if (q) data = data.filter(tx => tx.item.toLowerCase().includes(q));
-    if (from) data = data.filter(tx => tx.date >= from);
-    if (to) data = data.filter(tx => tx.date <= to);
-    return data;
-  }
-
-  function applyFilters() {
-    filtered = getFilteredData();
-    renderTable(filtered);
-    updateSummary(filtered);
-    updateChartsFromData(filtered);
-  }
-
-  function resetFilters() {
-    searchBox.value = '';
-    filterFrom.value = '';
-    filterTo.value = '';
-    filtered = null;
-    refreshUI();
-  }
-
-  // --- Rendering ---
+  // --- Rendering / Summary / Filtering ---
   function renderTable(data) {
     txBody.innerHTML = '';
-    data.forEach(tx => {
+    (data || []).forEach(tx => {
       const tr = document.createElement('tr');
 
       const tdType = document.createElement('td');
@@ -508,10 +583,9 @@ inputDate.value='';
       tr.appendChild(tdActions);
       txBody.appendChild(tr);
     });
-    txCount.textContent = data.length;
+    txCount.textContent = (data || []).length;
   }
 
-  // --- Summary ---
   function updateSummary(data) {
     const arr = data || transactions;
     const countB = arr.filter(tx => tx.type === 'buy').length;
@@ -527,7 +601,6 @@ inputDate.value='';
     totalProfit.textContent = fmt(profit) + ' ₪';
   }
 
-  // --- Charts ---
   function groupByDate(arr) {
     const map = {};
     arr.forEach(tx => {
@@ -543,80 +616,230 @@ inputDate.value='';
     const map = groupByDate(arr);
     const dates = Object.keys(map).sort((a, b) => new Date(a) - new Date(b));
 
-    profitChart.data.labels = dates;
-    profitChart.data.datasets[0].data = dates.map(d => map[d].earned - map[d].spent);
-    profitChart.update();
-
-    expensesChart.data.labels = dates;
-    expensesChart.data.datasets[0].data = dates.map(d => map[d].spent);
-    expensesChart.update();
-
-    salesChart.data.labels = dates;
-    salesChart.data.datasets[0].data = dates.map(d => map[d].earned);
-    salesChart.update();
-
-    const expenseByItem = {};
-    arr.forEach(tx => { if (tx.type === 'buy') expenseByItem[tx.item] = (expenseByItem[tx.item] || 0) + tx.price; });
-    const items = Object.keys(expenseByItem).sort((a, b) => expenseByItem[b] - expenseByItem[a]).slice(0, 12);
-    pieExpenses.data.labels = items;
-    pieExpenses.data.datasets[0].data = items.map(i => expenseByItem[i]);
-    pieExpenses.update();
+    if (profitChart) {
+      profitChart.data.labels = dates;
+      profitChart.data.datasets[0].data = dates.map(d => map[d].earned - map[d].spent);
+      profitChart.update();
+    }
+    if (expensesChart) {
+      expensesChart.data.labels = dates;
+      expensesChart.data.datasets[0].data = dates.map(d => map[d].spent);
+      expensesChart.update();
+    }
+    if (salesChart) {
+      salesChart.data.labels = dates;
+      salesChart.data.datasets[0].data = dates.map(d => map[d].earned);
+      salesChart.update();
+    }
   }
 
-  function initCharts() {
-    profitChart = new Chart(document.getElementById('profitChart').getContext('2d'), {
-      type: 'line',
-      data: { labels: [], datasets: [{ label: 'רווח יומי (₪)', data: [], borderColor: '#00ffcc', backgroundColor: 'rgba(0,255,204,0.08)', tension: 0.2, fill: true, pointRadius: 4 }] },
-      options: { plugins: { legend: { display: false } }, scales: { y: { ticks: { color: '#dbeefc' } }, x: { ticks: { color: '#9aa3b2' } } } }
-    });
-
-    expensesChart = new Chart(document.getElementById('expensesChart').getContext('2d'), {
-      type: 'bar',
-      data: { labels: [], datasets: [{ label: 'הוצאות יומיות', data: [], backgroundColor: '#ff9b9b' }] },
-      options: { plugins: { legend: { display: false } }, scales: { y: { ticks: { color: '#dbeefc' } }, x: { ticks: { color: '#9aa3b2' } } } }
-    });
-
-    salesChart = new Chart(document.getElementById('salesChart').getContext('2d'), {
-      type: 'bar',
-      data: { labels: [], datasets: [{ label: 'מכירות יומיות', data: [], backgroundColor: '#9be0ff' }] },
-      options: { plugins: { legend: { display: false } }, scales: { y: { ticks: { color: '#dbeefc' } }, x: { ticks: { color: '#9aa3b2' } } } }
-    });
-
-    pieExpenses = new Chart(document.getElementById('pieExpenses').getContext('2d'), {
-      type: 'pie',
-      data: { labels: [], datasets: [{ data: [], backgroundColor: ['#2f7eff', '#00ffcc', '#ffc857', '#ff9b9b', '#c77dff', '#7ef5a7', '#ffd1f0', '#9be0ff', '#ffb199', '#b0e2ff'] }] },
-      options: { plugins: { legend: { position: 'right', labels: { color: '#fff' } } } }
-    });
+  function getFilteredData() {
+    const q = (searchBox?.value || '').trim().toLowerCase();
+    const from = filterFrom?.value;
+    const to = filterTo?.value;
+    let data = transactions.slice();
+    if (q) data = data.filter(tx => (tx.item || '').toString().toLowerCase().includes(q));
+    if (from) data = data.filter(tx => tx.date >= from);
+    if (to) data = data.filter(tx => tx.date <= to);
+    return data;
   }
 
-  // --- UI Refresh ---
+  function applyFilters() {
+    filtered = getFilteredData();
+    renderTable(filtered);
+    updateSummary(filtered);
+    updateChartsFromData(filtered);
+  }
+
+  function resetFilters() {
+    if (searchBox) searchBox.value = '';
+    if (filterFrom) filterFrom.value = '';
+    if (filterTo) filterTo.value = '';
+    filtered = null;
+    refreshUI();
+  }
+
+  // --- Edit modal placeholder ---
+  function openEditModal(tx) {
+    const newPrice = prompt('ערוך מחיר:', tx.price);
+    if (newPrice !== null) editTransaction(tx.id, { price: Number(newPrice) });
+  }
+
+  // --- Clean inputs ---
+  function cleanAfterAction() {
+    if (inputItem) inputItem.value = '';
+    if (inputPrice) inputPrice.value = '';
+    if (inputDate) inputDate.value = '';
+  }
+
+  // --- Event bindings UI ---
+  btnBuy?.addEventListener('click', () => {
+    if (inputItem?.value && inputPrice?.value) addTransaction('buy', inputItem.value, inputPrice.value, inputDate.value || todayISO());
+  });
+  btnSell?.addEventListener('click', () => {
+    if (inputItem?.value && inputPrice?.value) addTransaction('sell', inputItem.value, inputPrice.value, inputDate.value || todayISO());
+  });
+  btnClear?.addEventListener('click', () => {
+    if (confirm('למחוק את כל הנתונים?')) {
+      // מקומי בלבד (אם רוצים למחוק ב-Firestore — צריך לולאה עם delete)
+      transactions = [];
+      saveLocal();
+      refreshUI();
+    }
+  });
+  searchBox?.addEventListener('input', applyFilters);
+  btnFilter?.addEventListener('click', applyFilters);
+  btnResetFilter?.addEventListener('click', resetFilters);
+
+  // --- Refresh UI מרוכזת ---
   function refreshUI() {
     renderTable(filtered || transactions);
     updateSummary(filtered || transactions);
     updateChartsFromData(filtered || transactions);
   }
 
-  // --- Edit Modal Placeholder ---
-  function openEditModal(tx) {
-    const newPrice = prompt('ערוך מחיר:', tx.price);
-    if (newPrice !== null) editTransaction(tx.id, { price: Number(newPrice) });
+  // התחלת תרשימים וטעינת מקומי
+  initCharts();
+  loadLocal();
+  refreshUI();
+
+  /* ===========================
+     Firestore: listeners + CRUD (users/<uid>/transactions)
+     =========================== */
+
+  // מאזין בזמן אמת ל־transactions של המשתמש הנוכחי
+  function listenToUserTransactions(uidToListen) {
+    // בטח שהפעלנו unsubscribe קודם
+    if (transactionsUnsubscribe) {
+      transactionsUnsubscribe();
+      transactionsUnsubscribe = null;
+    }
+    if (!uidToListen) return;
+
+    const txCollection = collection(db, "users", uidToListen, "transactions");
+    const q = query(txCollection, orderBy("date", "desc"));
+
+    transactionsUnsubscribe = onSnapshot(q, snapshot => {
+      transactions = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      // אופציונלי: שמירת מקומית
+      saveLocal();
+      refreshUI();
+    }, err => {
+      console.error('onSnapshot error:', err);
+    });
   }
 
-  // --- Event Listeners ---
-  btnBuy.onclick = () => { if (inputItem.value && inputPrice.value) addTransaction('buy', inputItem.value, inputPrice.value, inputDate.value || todayISO()); };
-  btnSell.onclick = () => { if (inputItem.value && inputPrice.value) addTransaction('sell', inputItem.value, inputPrice.value, inputDate.value || todayISO()); };
-  btnClear.onclick = () => { if (confirm('למחוק את כל הנתונים?')) { transactions = []; saveLocal(); refreshUI(); } };
-  searchBox.oninput = applyFilters;
-  btnFilter.onclick = applyFilters;
-  btnResetFilter.onclick = resetFilters;
+  // הוספת עסקה ב-subcollection של המשתמש
+  async function addTransaction(type, item, price, date) {
+    if (!currentUserUID) {
+      alert('אין משתמש מחובר.');
+      return;
+    }
+    try {
+      cleanAfterAction();
+      const txCollection = collection(db, "users", currentUserUID, "transactions");
+      const docRef = await addDoc(txCollection, {
+        type,
+        item: item.trim(),
+        price: Number(price),
+        date
+      });
+      // לא חייבים לדחוף ל־transactions כי onSnapshot יעדכן אותנו, אבל נשאיר עדכון מקומי קל במקרה שאין onSnapshot
+      // transactions.push({ id: docRef.id, type, item: item.trim(), price: Number(price), date });
+      // refreshUI();
+    } catch (e) {
+      console.error('addTransaction error:', e);
+      alert('שגיאה בהוספת עסקה: ' + e.message);
+    }
+  }
 
-  // --- Init ---
-  loadLocal();
-  initCharts();
-  refreshUI();
-});
+  // עדכון עסקה ב-subcollection
+  async function editTransaction(id, newData) {
+    if (!currentUserUID) {
+      alert('אין משתמש מחובר.');
+      return;
+    }
+    try {
+      const txDoc = doc(db, "users", currentUserUID, "transactions", id);
+      await updateDoc(txDoc, newData);
+      // onSnapshot יעדכן אותנו אוטומטית
+    } catch (e) {
+      console.error('editTransaction error:', e);
+      alert('שגיאה בעדכון עסקה: ' + e.message);
+    }
+  }
 
+  // מחיקת עסקה ב-subcollection
+  async function deleteTransaction(id) {
+    if (!currentUserUID) {
+      alert('אין משתמש מחובר.');
+      return;
+    }
+    try {
+      const txDoc = doc(db, "users", currentUserUID, "transactions", id);
+      await deleteDoc(txDoc);
+      // onSnapshot יעדכן אותנו אוטומטית
+    } catch (e) {
+      console.error('deleteTransaction error:', e);
+      alert('שגיאה במחיקת עסקה: ' + e.message);
+    }
+  }
+
+  /* ===========================
+     Auth: התחברות/הרשמה/התנתקות + onAuthStateChanged
+     =========================== */
+
+  loginBtn?.addEventListener('click', async () => {
+    try {
+      await signInWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
+    } catch (e) {
+      alert('שגיאת התחברות: ' + e.message);
+    }
+  });
+
+  signupBtn?.addEventListener('click', async () => {
+    try {
+      await createUserWithEmailAndPassword(auth, emailInput.value, passwordInput.value);
+      alert("נרשמת בהצלחה! ✅");
+    } catch (e) {
+      alert('שגיאת הרשמה: ' + e.message);
+    }
+  });
+
+  logoutBtn?.addEventListener('click', async () => {
+    try {
+      await signOut(auth);
+    } catch (e) {
+      console.error('signOut error', e);
+    }
+  });
+
+  // מאזין למצב האימות — מפעיל/מפסיק את מאזין העסקאות
+  onAuthStateChanged(auth, user => {
+    if (user) {
+      currentUserUID = user.uid;
+      loginModal?.classList.add('hidden');
+      logoutBtn?.classList.remove('hidden');
+      // התחל להקשיב לשינויים בעסקאות של המשתמש
+      listenToUserTransactions(currentUserUID);
+    } else {
+      currentUserUID = null;
+      loginModal?.classList.remove('hidden');
+      logoutBtn?.classList.add('hidden');
+      // עצור את המאזין אם קיים
+      if (transactionsUnsubscribe) {
+        transactionsUnsubscribe();
+        transactionsUnsubscribe = null;
+      }
+      transactions = [];
+      refreshUI();
+    }
+  });
+
+}); // end DOMContentLoaded
 </script>
+
+
 
 
 
